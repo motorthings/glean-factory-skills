@@ -289,14 +289,49 @@ Input form field rules:
 - Known/finite value sets -> SELECT. Free-form -> TEXT. Locations MUST be SELECT.
 - No MULTI_SELECT type. Option `label` is always "".
 
-Import-safe tools (auto-bind on import): Think, Company search, Read document, Respond. ALL others require manual config after import.
+Import-safe tools (auto-bind on import): Think, Company search, Respond. Only these THREE tools auto-bind correctly when JSON is imported. ALL other tools -- including Read document, Create a Google Doc, Plan and execute, and every action pack tool -- appear as "Select step" with a warning triangle after import and require manual configuration.
 
-Branch steps need descriptive labels on the step itself, each conditional target, and the default target.
+Branch steps do not use toolConfig and import correctly. Branch steps need descriptive labels on the step itself, each conditional target, and the default target.
 
-Sticky notes (REQUIRED for non-importable tools):
-- backgroundColor: "#FFE0B2"
-- content: "MANUAL CONFIG REQUIRED -- Step N ([label]): Select '[tool name]' from the action dropdown."
-- Every non-importable step gets exactly one sticky note
+Sticky notes (REQUIRED for EVERY step that is not Think, Company search, or Respond):
+
+This is critical. Without sticky notes, the builder has no way to know which tool to select for "Select step" steps after import. Steps 1-6 showing as blank "Select step" boxes is a build failure.
+
+Rules:
+- EVERY step whose tool is NOT Think, Company search, or Respond MUST have a sticky note. This includes Read document steps.
+- backgroundColor: "#FFE0B2" (orange)
+- Each sticky note content MUST include ALL of:
+  1. Which tool to select: "Select '[exact tool name]' from the action dropdown"
+  2. Any configuration needed (folder IDs, document URLs, field mappings)
+  3. Recommended model: suggest a model for the step based on its needs:
+     - Retrieval/read steps (Read document, Company search): "Model: default (no override needed) -- simple retrieval"
+     - Generation/synthesis steps (Think for content creation): "Model: Claude Sonnet 4.6 (VERTEX_AI) -- complex generation needs strongest model"
+     - QA/validation steps (Think for checking): "Model: Claude Sonnet 4.6 (VERTEX_AI) -- accuracy critical"
+     - Delivery steps (Respond): "Model: default -- straightforward response assembly"
+     - Action steps (Create a Google Doc, etc.): "Model: default -- action execution"
+- Format: "MANUAL CONFIG REQUIRED -- Step N ([step label]): Select '[tool name]' from the action dropdown. [Config details]. [Model recommendation]."
+- boundingBox positioning -- place each note near its step on the canvas:
+  - Glean lays out PARALLEL steps (no dependencies between them) in a HORIZONTAL row, each ~250px apart starting at x=10
+  - Glean lays out SEQUENTIAL steps (with dependencies) in a VERTICAL chain below
+  - For parallel steps: place each note BELOW its step. Use the same x offset as the step (step 1 at x=10, step 2 at x=260, step 3 at x=510, etc.), y = row_y + 150 (below the step card). Width=240, height=120.
+  - For sequential steps: place each note to the RIGHT of its step. x = step_x + 250, same y as the step. Width=300, height=80.
+  - Informational notes (green/blue): place in clear space near the top or beside the relevant step
+- Every non-auto-binding step gets exactly one matching sticky note
+
+After generating the JSON, do a FINAL VERIFICATION:
+1. Count all steps that use a tool other than Think, Company search, or Respond
+2. Count all sticky notes
+3. These numbers MUST match. If they don't, add the missing sticky notes before outputting.
+
+Example sticky note for a Read document step:
+```json
+{"backgroundColor":"#FFE0B2","content":"MANUAL CONFIG REQUIRED -- Step 2 (Load Hiring Package Template)\\: Select 'Read document' from the action dropdown. Set document URL to the Hiring Package Template Google Doc. Model: default -- simple retrieval.","boundingBox":{"x":350,"y":250,"width":320,"height":100}}
+```
+
+Example sticky note for a Create a Google Doc step:
+```json
+{"backgroundColor":"#FFE0B2","content":"MANUAL CONFIG REQUIRED -- Step 9 (Create Google Doc)\\: Select 'Create a Google Doc' from the action dropdown. Set Folder ID to 1GD61BftwTKkjffjPJezMg1j05tOqcE12. Model: default -- action execution.","boundingBox":{"x":350,"y":1300,"width":320,"height":100}}
+```
 
 **File 2: architecture-guide.md** -- overview, data access, KB setup, workflow detail, ASCII diagram, decisions, prerequisites, risks, build sequence
 
