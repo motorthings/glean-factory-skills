@@ -7,7 +7,7 @@ SKILLS_DIR="$HOME/.claude/skills"
 
 mkdir -p "$SKILLS_DIR"
 
-for skill in glean-build glean-validate glean-repair glean-extract glean-discover; do
+for skill in glean-build glean-validate glean-repair-workflow glean-extract glean-discover; do
   src="$SCRIPT_DIR/skills/${skill}.md"
   dest="$SKILLS_DIR/${skill}.md"
   if [ -f "$src" ]; then
