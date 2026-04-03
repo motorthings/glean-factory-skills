@@ -1,9 +1,9 @@
 ---
-name: glean-repair
-description: Apply targeted fixes to a Glean agent JSON configuration based on specific findings. Use after /glean-validate identifies issues, or when user has a specific fix to apply.
+name: glean-repair-workflow
+description: Apply targeted fixes to a Glean Workflow Mode agent JSON configuration based on specific findings. Use after /glean-validate identifies Workflow Mode issues, or when user has a specific fix to apply. For Auto Mode agents, edit instructions directly in the Glean UI.
 ---
 
-# Glean Agent Repair
+# Glean Workflow Agent Repair
 
 Apply targeted fixes to a Glean agent JSON configuration. Fixes exactly what is specified -- does not refactor unrelated parts.
 
