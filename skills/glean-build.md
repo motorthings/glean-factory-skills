@@ -1,11 +1,14 @@
 ---
 name: glean-build
-description: Build a Glean agent from a PRD through a 6-phase pipeline (fitness check, gap analysis, workflow design, instructions, JSON generation, summary). Use when user has a PRD or requirements doc and wants to produce a buildable Glean agent configuration.
+description: Build a Glean agent from a PRD. Routes to Workflow Mode (6-phase pipeline producing importable JSON) or Auto Mode (instruction design + paste-ready build brief) based on PRD analysis. Use when user has a PRD or requirements doc and wants to produce a buildable Glean agent.
 ---
 
-# Glean Agent Builder -- 6-Phase Pipeline
+# Glean Agent Builder
 
-Build a complete Glean agent configuration from a PRD (Product Requirements Document). Runs 6 sequential phases, each feeding the next.
+Build a complete Glean agent from a PRD (Product Requirements Document). The pipeline detects whether the agent should be built as Workflow Mode (multi-step, deterministic) or Auto Mode (single-instruction, conversational) and routes to the appropriate build path.
+
+**Workflow Mode path:** Phase 0 -> Phase 1 -> Phase 2 -> Phase 3 -> Phase 4 -> Phase 5 (produces importable JSON)
+**Auto Mode path:** Phase 0 -> Phase 1 -> Phase 2A -> Phase 3A (produces paste-ready build brief)
 
 ## Arguments
 
@@ -25,6 +28,8 @@ Knowledge docs live at `~/Vault/GitHub/glean-agent-factory-app/backend/engine/kn
 | 2 - Workflow Design | glean-actions-catalog.md, glean-connector-registry.md, glean-platform-reference-slim.md, glean-prompt-engineering.md |
 | 3 - Instructions | glean-platform-reference.md, glean-prompt-engineering.md |
 | 4 - JSON Generation | glean-actions-catalog.md, glean-json-schema.md, glean-platform-reference.md |
+| 2A - Instruction Design | glean-platform-reference-slim.md, glean-prompt-engineering.md |
+| 3A - Build Brief | glean-platform-reference-slim.md |
 | 5 - Summary | none |
 
 At the start of each phase, read the relevant knowledge docs. Do not read all docs upfront.
@@ -91,7 +96,24 @@ Mandatory FAIL conditions (any one is sufficient):
 9. Onboarding/Guided Flow
 10. Decision Tree Agent
 
-**3. Requirements Summary** -- extract agent name, trigger type, data sources, output format, complexity estimate
+**3. Mode Signal Scan** -- after the pattern match, evaluate which Glean agent mode fits this PRD:
+
+| Signal | Auto Mode | Workflow Mode |
+|--------|-----------|---------------|
+| Step structure | Single task or judgment call | Multi-step with defined sequence |
+| Branching | No conditional routing needed | Routes based on input classification |
+| Write actions | None, or single supplementary action | Write actions at specific points in process |
+| Nature of intelligence | Domain expertise + judgment (advisory) | Data orchestration + transformation |
+| Output variability | Responses vary based on conversation | Structured, repeatable output format |
+
+Count Auto Mode signals:
+- **4-5**: Recommend Auto Mode. State rationale. Ask user: proceed as Auto Mode, or override to Workflow?
+- **3**: Ambiguous. Present both options with trade-offs. User decides.
+- **0-2**: Proceed as Workflow Mode (no interruption).
+
+If recommending Auto Mode: note that there is no JSON import for Auto Mode. The build output will be a paste-ready brief for the Glean UI.
+
+**4. Requirements Summary** -- extract agent name, trigger type, data sources, output format, complexity estimate
 
 **STOP on FAIL.** If fitness is FAIL, report the result and stop the pipeline. Do not proceed to Phase 1.
 
@@ -103,7 +125,7 @@ Present Phase 0 results to the user and ask: proceed, or address issues first?
 
 Read knowledge docs for this phase. Include any reference documents the user provided.
 
-Perform gap analysis across 11 categories, rating each as Critical / High / Medium / Low / None:
+Perform gap analysis across 12 categories, rating each as Critical / High / Medium / Low / None:
 
 1. Data model mismatches
 2. Section name accuracy
@@ -116,6 +138,9 @@ Perform gap analysis across 11 categories, rating each as Critical / High / Medi
 9. Compliance/legal gaps
 10. Output action feasibility
 11. Problem-solution alignment
+12. Mode validation -- Cross-reference Phase 0 mode recommendation against detailed requirements. If Auto Mode recommended: do any requirements need branching, quality gates, multi-step data flow, or >20 actions? If yes, override to Workflow. If Workflow recommended: is every step necessary, or is this a single instruction with good structure? If over-engineered, suggest Auto Mode. If Ambiguous: make final recommendation with rationale.
+
+Gap analysis verdict must include confirmed mode: "proceed as **Auto Mode**" or "proceed as **Workflow Mode**".
 
 For tagged document references (@doc-name): first check if the PRD contains the content inline. If so, it's a label, not an external dependency.
 
@@ -132,6 +157,87 @@ Output format:
 **STOP on BLOCK.** If overall risk is "block", present findings to the user and ask whether to continue (with checkbox override) or stop.
 
 Present Phase 1 results to the user and ask: proceed, address gaps first, or override and continue?
+
+---
+
+### Phase 2A: Instruction Design (Auto Mode)
+
+Entered when Phase 1 confirms Auto Mode. Skips Workflow Phases 2-4.
+
+Read knowledge docs: glean-platform-reference-slim.md, glean-prompt-engineering.md
+
+Structure the instruction block using the PRD requirements:
+
+1. **Purpose** (1-3 sentences) -- what the agent does
+2. **Decision logic** -- concrete rules, criteria, thresholds (the core of the instruction). Be specific: red-flag examples, classification criteria, scoring rubrics. Vague rules produce inconsistent results.
+3. **Interaction model** -- how to engage the user. What to ask, when to escalate, what to refuse.
+4. **Output format** -- how responses should be structured. Define sections, ordering, conditional inclusion.
+5. **Scope / boundaries** -- what the agent will NOT do.
+6. **Operational notes** -- entity names, process references, system-specific details.
+
+**Quality checklist** (run against draft):
+- Total instruction length under 6K chars (WARN at 6K, FAIL at 8K)
+- No dead weight (future features, TODOs, unimplemented hooks)
+- No personal references (@-mentions, individual names)
+- Decision logic uses concrete criteria, not vague guidance
+- Output format explicitly defined
+- Scope boundaries stated
+- Interaction model covers: what to ask, when to escalate, what to refuse
+
+Present the full instruction text and checklist results. Wait for user approval before Phase 3A.
+
+---
+
+### Phase 3A: Build Brief (Auto Mode)
+
+Read knowledge docs: glean-platform-reference-slim.md
+
+Generate a paste-ready build brief organized by Glean UI fields:
+
+```
+## Build Brief: [Agent Name]
+
+### Instructions
+[Full instruction text from Phase 2A -- paste into Glean instructions field]
+
+### Knowledge Sources
+[List each doc/folder to add, with rationale]
+
+### Conversation Starters
+| Label | Prompt |
+|-------|--------|
+| [display text] | [full prompt text] |
+
+### Actions
+[Which actions to enable, with rationale]
+
+### LLM Mode
+[Fast or Thinking] -- [rationale]
+
+### LLM Model
+[Model name] -- [rationale]
+
+### Agent Name
+[Following naming convention: (BETA v1) Name (Department)]
+
+### Post-Build Checklist
+- [ ] Create new Auto Mode agent in Glean
+- [ ] Paste instructions
+- [ ] Add knowledge sources
+- [ ] Enable actions
+- [ ] Add conversation starters
+- [ ] Set LLM mode and model
+- [ ] Set agent name and description
+- [ ] Test with 3-5 representative queries
+- [ ] Share with beta testers as Viewers
+```
+
+Guidelines:
+- Knowledge sources: only docs referenced in instructions or essential for the domain
+- Actions: only actions the instructions reference or depend on
+- LLM mode: Thinking for judgment/analysis, Fast for simple Q&A/retrieval
+- LLM model: platform default unless task demands specific model strengths
+- Conversation starters: each demonstrates a distinct use case
 
 ---
 
@@ -382,7 +488,13 @@ glean-build-output/
 
 ## Post-Build
 
-After the pipeline completes, suggest:
+**Workflow Mode:** After the pipeline completes, suggest:
 1. Run `/glean-validate` on the generated agent-config.json
 2. Import into Glean Agent Builder
 3. Run `/glean-extract` after manual adjustments to capture the live version
+
+**Auto Mode:** After the pipeline completes, suggest:
+1. Follow the Post-Build Checklist in the build brief
+2. After building in the Glean UI, test with the conversation starters
+3. Run `/glean-validate` with the instruction text to verify quality
+4. Share with beta testers as Viewers
