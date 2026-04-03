@@ -27,8 +27,14 @@ Read these at the start of validation:
 Read the JSON file. If it fails to parse, report the JSON syntax error with line number and stop.
 
 Detect format:
-- **Import format**: has `rootWorkflow` at top level. Steps at `rootWorkflow.schema.steps`.
-- **Export format**: has `workflow` at top level with `schema.steps`. Note this to the user -- it needs wrapping for import.
+- **Workflow (import)**: has `rootWorkflow` at top level with `schema.steps`. Route to Workflow validation (Sections 2-6 below).
+- **Workflow (export)**: has `workflow` at top level with `schema.steps`. Note this to the user -- it needs wrapping for import. Route to Workflow validation.
+- **Auto Mode (import)**: has `rootWorkflow` with `schema.autonomousAgentConfig`. Route to Auto Mode validation (Section 7 below).
+- **Auto Mode (export)**: has `workflow` with `schema.autonomousAgentConfig`. Route to Auto Mode validation.
+- **Auto Mode (plain text)**: input is not valid JSON. Treat as Auto Mode instruction text. Route to Auto Mode validation (Section 7, instruction checks only).
+- **Unknown JSON**: valid JSON but no recognized keys. Error: "Unrecognized Glean agent format -- expected rootWorkflow.schema.steps (Workflow) or rootWorkflow.schema.autonomousAgentConfig (Auto Mode)."
+
+Detection order: attempt JSON parse first. If valid JSON, check for known keys. If not valid JSON, treat as instruction text.
 
 ### 2. Structural Validation
 
@@ -147,10 +153,77 @@ Output a structured report:
 - Verdict: PASS / PASS WITH WARNINGS / FAIL
 ```
 
-If `--fix` was specified, also output a list of suggested repairs that can be fed to `/glean-repair`:
+If `--fix` was specified, also output a list of suggested repairs that can be fed to `/glean-repair-workflow`:
 
 ```
 ### Suggested Repairs
 1. [finding description] -- [suggested fix]
 2. ...
+```
+
+---
+
+### 7. Auto Mode Validation
+
+Run this section when format detection identifies an Auto Mode agent (JSON with `autonomousAgentConfig`) or plain instruction text.
+
+#### 7a. Automated Checklist
+
+**Shared checks (both modes):**
+- Naming convention: BETA / LIVE / DRAFT tag present in agent name (if available)
+- Data sensitivity: Flag if domain is Legal, HR, or Finance
+- No PII or secrets hardcoded in instructions
+- No personal references (@-mentions, personal names that should not be in shared instructions)
+
+**Auto Mode-specific checks:**
+
+| Check | Threshold | Severity |
+|---|---|---|
+| Instruction length | >6K chars | WARN |
+| Instruction length | >8K chars | FAIL |
+| Dead weight sections | Future features, TODOs, unimplemented hooks | WARN |
+| Scope boundaries | No "this agent does NOT..." or equivalent | WARN |
+| Decision logic specificity | Vague criteria ("use best judgment" without concrete rules) | WARN |
+| Output format defined | No structured output section | WARN |
+| Action references | Actions listed but not referenced in instructions | WARN |
+| Knowledge source references | Sources listed but not referenced in instructions | WARN |
+| Interaction model | No guidance on how to interact with user | INFO |
+
+#### 7b. Qualitative Review
+
+Perform an LLM-driven review of the instruction content:
+
+- **Clarity**: Is the purpose unambiguous? Could someone unfamiliar with the domain understand what this agent does?
+- **Decision logic**: Are rules specific enough to produce consistent results across runs, or is there interpretation variance?
+- **Interaction model**: Does it define how the agent engages the user (what to ask, when to escalate, what to refuse)?
+- **Completeness**: Are there obvious gaps given the stated purpose?
+- **Token efficiency**: Is every section earning its place in the instruction budget?
+
+#### 7c. Report Format
+
+```
+## Auto Mode Agent Review: [name or "Unnamed"]
+
+### Checklist
+[PASS / WARN / FAIL items]
+
+### Instructions Review
+[Qualitative findings -- clarity, decision logic, interaction model, completeness, token efficiency]
+
+### Knowledge Sources
+[Coverage assessment, or "Not provided"]
+
+### Actions
+[Relevance assessment, or "Not provided"]
+
+### Conversation Starters
+[Quality check, or "Not provided"]
+
+### LLM Mode / Model
+[Appropriateness assessment, or "Not provided"]
+
+### Summary
+- Issues: N
+- Warnings: N
+- Verdict: PASS / PASS WITH WARNINGS / NEEDS REVISION
 ```
