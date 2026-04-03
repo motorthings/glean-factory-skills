@@ -11,9 +11,9 @@ Instead of running a separate Electron/Next.js/FastAPI app to build Glean agents
 | Skill | Command | What It Does |
 |-------|---------|-------------|
 | **glean-discover** | `/glean-discover` | Conversational requirements interview (PuRDy methodology). Produces a PRD. |
-| **glean-build** | `/glean-build` | 6-phase pipeline that turns a PRD into a complete Glean agent config + docs. |
-| **glean-validate** | `/glean-validate` | Structural validation, instruction budget audit, and anti-pattern checks on agent JSON. |
-| **glean-repair** | `/glean-repair` | Targeted fixes to agent JSON based on validation findings or manual review. |
+| **glean-build** | `/glean-build` | Routes PRD to Workflow Mode (6-phase pipeline -> importable JSON) or Auto Mode (instruction design -> paste-ready build brief). |
+| **glean-validate** | `/glean-validate` | Validates Workflow Mode JSON (structural, budget, anti-patterns) or Auto Mode agents (instruction quality, checklist, qualitative review). |
+| **glean-repair-workflow** | `/glean-repair-workflow` | Targeted fixes to Workflow Mode agent JSON based on validation findings or manual review. |
 | **glean-extract** | `/glean-extract` | Export a live agent's JSON from Glean via Chrome CDP. |
 
 ## Usage
@@ -24,7 +24,7 @@ These are conversational skills. You don't need to memorize exact commands -- ju
 "I'd like to build a Glean agent from this PRD"          -> /glean-build
 "Help me figure out requirements for a new agent"         -> /glean-discover
 "Can you check this agent JSON for issues?"               -> /glean-validate
-"Fix the variable syntax problems in this agent"          -> /glean-repair
+"Fix the variable syntax problems in this agent"          -> /glean-repair-workflow
 "Export the Deal Desk agent from Glean"                   -> /glean-extract
 ```
 
@@ -39,7 +39,7 @@ Or invoke directly with `/glean-build`, `/glean-discover`, etc.
         |
 3. /glean-validate     Check for structural issues
         |
-4. /glean-repair       Fix any findings
+4. /glean-repair-workflow  Fix any findings (Workflow Mode)
         |
 5. Import into Glean   Paste JSON in Agent Builder UI
         |
@@ -53,7 +53,7 @@ Or invoke directly with `/glean-build`, `/glean-discover`, etc.
 | Phase | Name | What Happens | Gate |
 |-------|------|-------------|------|
 | 0 | Fitness Check | Problem-solution fit, Glean platform fit, pattern matching | FAIL = stop |
-| 1 | Gap Analysis | 11-category gap analysis, risk assessment, resolution playbooks | BLOCK = stop |
+| 1 | Gap Analysis | 12-category gap analysis (incl. mode validation), risk assessment, resolution playbooks | BLOCK = stop |
 | 2 | Workflow Design | Architecture pattern selection, step sizing, QA decision | User approval |
 | 3 | Instructions | Goal-Return Format-Warnings-Context per step, UUID registry | -- |
 | 4 | JSON Generation | Complete agent-config.json + 4 supporting docs | -- |
@@ -123,7 +123,7 @@ Each skill loads only the docs it needs to minimize context usage:
 | JSON Generation (Phase 4) | actions-catalog, json-schema, platform-reference (full) |
 | Summary (Phase 5) | none (uses prior phase outputs) |
 | Validate | json-schema, platform-reference (full), tyler-best-practices |
-| Repair | json-schema, platform-reference (full), prompt-engineering, actions-catalog |
+| Repair (Workflow) | json-schema, platform-reference (full), prompt-engineering, actions-catalog |
 | Discover | none (interview-driven) |
 | Extract | none (CDP script) |
 
@@ -169,7 +169,7 @@ glean-factory-skills/
   skills/
     glean-build.md       6-phase build pipeline
     glean-validate.md    Structural + budget + anti-pattern validation
-    glean-repair.md      Targeted fix application
+    glean-repair-workflow.md  Targeted fix application (Workflow Mode)
     glean-extract.md     CDP-based JSON export from Glean
     glean-discover.md    PuRDy conversational requirements interview
 ```
