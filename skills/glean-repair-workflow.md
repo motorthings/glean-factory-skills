@@ -35,7 +35,7 @@ You are operating in REPAIR mode. Rules:
    - Context: [[step_uuid]] for dependencies, [[field_name]] for form inputs
 4. **New steps** get a fresh UUID and correct stepDependencies wiring.
 5. **Removed steps** also clean up any stepDependencies that reference them.
-6. **Always output complete, valid JSON** that can be imported into Glean Agent Builder.
+6. **For structural fixes** (field renames, tool names, trigger config, memoryConfig), output the patched JSON directly. **For instruction template rewrites**, use the Python patch pattern (see Common Repair Patterns) — never embed long instruction text inside a JSON string in your output. JSON-escaping 5k+ char strings manually is unreliable and is the primary cause of "Expecting ',' delimiter" parse failures.
 7. **Variable syntax** is [[variable_name]], never {{variable}}.
 8. **Step type field** is "type" (BRANCH, TOOL, AGENT).
 9. **Every step** must have "memoryConfig": "ALL_DEPENDENCIES".
@@ -137,6 +137,36 @@ Tool name mapping:
 
 ### Fix field names for input forms
 Replace spaces with underscores in `name`. Drop parentheses and special chars. Replace spaces with dashes in option `value`. Spell out symbols.
+
+### Instruction template patch (prevents JSON parse failures)
+
+When rewriting an `instructionTemplate` field, never embed the new text directly inside a JSON string in your output. Python handles escaping correctly; Claude output does not at lengths above ~2K chars.
+
+1. Write the new instruction text as a plain fenced code block in your response.
+2. Save it to a temp file using the Write tool: `/tmp/new_instruction.txt`
+3. Run the Python patch via Bash:
+
+```python
+import json
+
+with open('/tmp/new_instruction.txt', 'r') as f:
+    new_text = f.read()
+
+with open('<path-to-agent.json>', 'r') as f:
+    data = json.load(f)
+
+for step in data['rootWorkflow']['schema']['steps']:
+    if step['id'] == '<step-id>':
+        step['instructionTemplate'] = new_text
+        break
+
+with open('<path-to-agent.json>', 'w') as f:
+    json.dump(data, f, indent=4, ensure_ascii=False)
+
+print(f"Patched. Length: {len(new_text)}")
+```
+
+Verify the output parses cleanly with `python3 -c "import json; json.load(open('<path>'))"` before reporting success.
 
 ### Split overloaded step
 When a step exceeds 5K chars or contains multiple responsibilities:
